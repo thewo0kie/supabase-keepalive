@@ -1,11 +1,25 @@
 name: Keep Supabase Alive
 on:
   schedule:
-    - cron: "0 9 * * 1,4"
+    - cron: "0 9 * * *"        # daily
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST API
-        run: curl -sS "https://attfuuavgtnstmnrbxtw.supabase.co/rest/v1/system_settings?select=key&limit=1" -H "apikey:${{ secrets.SUPABASE_KEY }}" -H "Authorization:Bearer ${{ secrets.SUPABASE_KEY }}"
+      - uses: actions/checkout@v4
+      - name: Write-ping via hex_ping RPC (fails loudly)
+        run: |
+          curl -fsS -X POST "https://attfuuavgtnstmnrbxtw.supabase.co/rest/v1/rpc/hex_ping" \
+            -H "apikey:${{ secrets.SUPABASE_KEY }}" \
+            -H "Authorization:Bearer ${{ secrets.SUPABASE_KEY }}" \
+            -H "Content-Type: application/json" -d "{}"
+      - name: Self-commit so GitHub never disables the schedule
+        run: |
+          date -u > last-ping.txt
+          git config user.name "keepalive-bot"
+          git config user.email "actions@github.com"
+          git add last-ping.txt && git commit -m "keepalive" || true
+          git push
